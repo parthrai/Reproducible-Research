@@ -1,0 +1,251 @@
+---
+title: "Project1"
+author: "Parth Rai Sharma"
+date: "December 27, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading and Pre-processing Data
+
+1. Loading the Data
+```{r loadingData}
+ activity <- read.csv("data/activity.csv",stringsAsFactors = F)
+```
+
+2. Process the data into suitable format
+
+```{r}
+activity$date <- as.POSIXct(activity$date, format="%Y-%m-%d")
+
+
+# Compute the weekdays from the date attribute
+activity <- data.frame(date=activity$date, 
+                           weekday=tolower(weekdays(activity$date)), 
+                           steps=activity$steps, 
+                           interval=activity$interval)
+
+# Compute the day type (weekend or weekday)
+activity <- cbind(activity, 
+                      daytype=ifelse(activity$weekday == "saturday" | 
+                                     activity$weekday == "sunday", "weekend", 
+                                     "weekday"))
+
+# Create the final data.frame
+activityData <- data.frame(date=activity$date, 
+                       weekday=activity$weekday, 
+                       daytype=activity$daytype, 
+                       interval=activity$interval,
+                       steps=activity$steps)
+````
+
+## What is the mean total number of steps taken per day?
+
+For this part of the assignment, you can ignore the missing values in the dataset.
+
+1. Calculating total number of steps for each day.
+
+```` {r}
+sumData <- aggregate(activityData$steps,by=list(activityData$date),FUN=sum, na.rm=T)
+
+#Renaming the Attributes
+
+names(sumData) <- c("Date","totalSteps")
+
+````
+
+Using head() to display new DS
+
+````{r }
+head(sumData)
+
+````
+
+2. Plotting the histogram
+
+````{r}
+hist(sumData$totalSteps, col="red",
+     xlab="Total number of Steps (TotalSteps)", 
+     ylim=c(0,20),
+     main="Histogram of the total number of steps taken each day\n(NA removed)")
+
+````
+
+3. Mean and Median of totalSteps
+
+````{r}
+mean(sumData$totalSteps)
+median(sumData$totalSteps)
+````
+Based on these formulas the mean is 9354.23 and Median is 10395
+
+## What is the average daily activity pattern ?
+
+1. Make a time series plot ( type=l) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+````{r}
+# removing SumData
+rm(sumData)
+
+# Computing the mean based on Steps and Intervals
+
+meanData <- aggregate(activityData$steps,by=list(activityData$interval),
+                      FUN=mean,na.rm=T
+                      
+                      )
+
+# Renaming the attributes
+names(meanData) <- c("interval","mean")
+
+# Using Head() to display first few rows
+
+head(meanData)
+
+````
+
+Drawing time series plot
+
+````{r}
+plot(meanData$interval,meanData$mean,type="l",col="red",lwd=2,
+     xlab="Interval in minutes",
+     ylab="Average number of steps",
+     main="Time-series of the average number of steps per intervals\n(NA removed)")
+
+````
+
+2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+
+````{r}
+#finding index of maximum mean
+maxPos <- which (meanData$mean == max(meanData$mean))
+
+# Finding the interval of maximum mean
+maxInterval <- meanData[maxPos,1]
+
+# Clear the workspace
+rm(maxPos,maxInterval)
+````
+The 5-minute interval that contains the maximum of steps, on average across all days, is 835.
+
+## Inputing the missing values
+
+Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NA's)
+
+````{r}
+# Clear the workspace
+rm(maxInterval)
+
+# Couting missing values
+NA_count <- sum(is.na(activityData$steps))
+````
+Total NA = 2304
+
+2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+````{r}
+# Clear the workspace
+rm(NA_count)
+
+# Find the NA positions
+na_pos <- which(is.na(activityData$steps))
+
+# Create a vector of means
+mean_vec <- rep(mean(activityData$steps, na.rm=TRUE), times=length(na_pos))
+
+````
+We use the strategy to remplace each NA value by the mean of the steps attribute.
+
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+````{r}
+# Replace the NAs by the means
+activityData[na_pos, "steps"] <- mean_vec
+
+# Clear the workspace
+rm(mean_vec, na_pos)
+````
+
+Useing Head() to display first few rows
+
+````{r}
+head(activityData)
+````
+
+4. Make a histogram of the total number of steps taken each day and calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+````{r}
+# Compute the total number of steps each day (NA values removed)
+sum_data <- aggregate(activityData$steps, by=list(activityData$date), FUN=sum)
+
+# Rename the attributes
+names(sum_data) <- c("date", "total")
+
+# Compute the histogram of the total number of steps each day
+hist(sum_data$total, 
+     breaks=seq(from=0, to=25000, by=2500),
+     col="blue", 
+     xlab="Total number of steps", 
+     ylim=c(0, 30), 
+     main="Histogram of the total number of steps taken each day\n(NA replaced by mean value)")
+````
+
+Computing mean and median
+
+````{r}
+mean(sum_data$total)
+median(sum_data$total)
+
+````
+
+Mean = 10766 , Median = 10766
+
+These values differ greatly from the estimates from the first part of the assignment. The impact of imputing the missing values is to have more data, hence to obtain a bigger mean and median value.
+
+## Are there differences in activity patterns between weekdays and weekends?
+For this part the weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
+
+1.Create a new factor variable in the dataset with two levels - "weekdays" and "weekend" indicating whether a given date is a weekday or weekend day.
+
+````{r}
+head(activityData)
+````
+
+2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5- minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+````{r}
+# Clear the workspace
+rm(sum_data)
+
+# Load the lattice graphical library
+library(lattice)
+
+# Compute the average number of steps taken, averaged across all daytype variable
+mean_data <- aggregate(activityData$steps, 
+                       by=list(activityData$daytype, 
+                               activityData$weekday, activityData$interval), mean)
+
+# Rename the attributes
+names(mean_data) <- c("daytype", "weekday", "interval", "mean")
+````
+
+using Head() to display mean_data
+
+````{r}
+head(mean_data)
+````
+Drawing the time series plot
+
+````{r}
+xyplot(mean ~ interval | daytype, mean_data, 
+       type="l", 
+       lwd=1, 
+       xlab="Interval", 
+       ylab="Number of steps", 
+       layout=c(1,2))
+
+````
