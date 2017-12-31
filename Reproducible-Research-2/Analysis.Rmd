@@ -1,0 +1,147 @@
+## Exploring and Analysing NOAA Strom database for Severe Weather Events
+
+#### Author : Parth Rai
+
+#### Date : December 30, 2017
+
+
+
+## Synopsis
+
+The NOAA database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. This project looks at severe weather events can cause both public health and economic problems.Specifically, we want to answer the following questions.
+
+1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+2. Across the United States, which types of events have the greatest economic consequences?
+
+## Data Processing
+
+Getting and loading data 
+
+````{r cache=TRUE}
+## creating directory for datasets
+
+localDir <- "data"
+if (!file.exists(localDir)) {
+  dir.create(localDir)
+}
+
+## download and unzip the data
+url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+file <- paste(localDir,basename(url),sep='/')
+if (!file.exists(file)) {
+  download.file(url, file)
+}
+data <- read.csv(file, as.is = TRUE)
+
+
+````
+## loading required Packages
+
+````{r}
+library(lubridate)
+library(ggplot2)
+library(cowplot)
+library(sqldf)
+library(grid)
+library(gridExtra)
+
+````
+#### Adding "Year" column to the dataset
+
+````{r}
+data$Year <- year(as.Date(data$BGN_DATE, '%m/%d/%Y'))
+
+````
+## Results
+
+### 1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+Create and executing the SQL query for calculating total Fatalities and Injuries and grouping them by Event type respectively.
+
+````{r}
+## using SQL limit clause to get first 10 rows
+
+fatalities_query <- "select EVTYPE as Event, sum(FATALITIES) as Fatalities from
+    data
+  where
+    Year >= 1950
+  group by
+    EVTYPE
+  order by
+    sum(FATALITIES) desc
+	LIMIT 10"
+
+
+injuries_query <- "select EVTYPE as Event, sum(INJURIES) as Injuries  from
+    data
+  where
+    Year >= 1950
+  group by
+    EVTYPE
+  order by
+    sum(INJURIES) desc
+	LIMIT 10 "
+
+fatalities_ds <-sqldf::sqldf(fatalities_query)
+injuries_ds <-sqldf::sqldf(injuries_query)
+
+````
+
+### Analysis
+
+#### using ggplot2 to plot bar graph for the analysis
+
+````{r}
+
+fatalities_plot <- ggplot(fatalities_ds, aes(x = Event, y = Fatalities)) + 
+    geom_bar(stat = "identity", fill = "red", las = 2) + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+    xlab("Event Type") + ylab("Fatalities") + ggtitle("Fatalities for top 10 events") + scale_x_discrete(limits=fatalities_ds$Event)
+
+injuries_plot <- ggplot(injuries_ds, aes(x = Event, y = Injuries)) + 
+    geom_bar(stat = "identity", fill = "red", las = 2) + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+    xlab("Event Type") + ylab("Injuries") + ggtitle("Injuries for top 10 events") + scale_x_discrete(limits=injuries_ds$Event)
+
+
+grid.arrange(fatalities_plot,injuries_plot,ncol=2)
+
+````
+
+## 2. Across the United States, which types of events have the greatest economic consequences?
+
+Create and executing the SQL query for calculating total Property damange and grouping by respective event type.
+
+````{r}
+propdmg_query <- "select EVTYPE as Event, sum(PROPDMG) as PropertyDamage  from data 
+  where
+    YEAR >= 1950
+  group by
+    EVTYPE
+  order by
+    sum(PROPDMG) desc
+	LIMIT 10 "
+
+propdmg_ds <-sqldf::sqldf(propdmg_query)
+
+
+````
+
+### Analysis
+using 'ggplot2' to plot bar graph for the analysis.
+
+````{r}
+ ggplot(propdmg_ds, aes(x = Event, y = PropertyDamage)) + 
+    geom_bar(stat = "identity", fill = "red", las = 2) + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+    xlab("Event Type") + ylab("Fatalities") + ggtitle("PROPDMG for top 10 events") + scale_x_discrete(limits=propdmg_ds$Event)
+
+
+
+````
+ 
+
+
+
+
+
